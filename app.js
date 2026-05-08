@@ -1,63 +1,48 @@
-var express = require("express");
-const helmet = require("helmet");
-var path = require("path");
-var cookieParser = require("cookie-parser"); 
-var logger = require("morgan");
+const express = require("express");
+const path = require("path");
+const cookieParser = require("cookie-parser");
+const logger = require("morgan");
 require("dotenv").config();
-var apiRouter = require("./routes/index.js");
-// var apiResponse = require("/home/ubuntu/config/apiResponse");  
-var apiResponse = require("./config/apiResponse");
-var cors = require("cors");
-const {syncPermissionsOnStart} = require("./services/bootstrap/syncPermissionsOnStart.js");
-const {initDbConnection} = require("./services/bootstrap/initDbConnection.js");
-var app = express();
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
+const indexRouter = require("./routes/index");
+const apiRouter = require("./routes/api");
+const apiResponse = require("./vars/apiResponse.js");
+const cors = require("cors");
+const moment = require("moment");
 
-//app.use(helmet());
-if(process.env.NODE_ENV !== "test") {
+
+const app = express();
+
+//don't show the log when it is test
+if (process.env.NODE_ENV !== "test") {
 	app.use(logger("dev"));
 }
-app.use(express.json({limit:'50mb'}));
-app.use(express.urlencoded({ extended: false,limit:'50mb' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-// app.use(express.static('/home/ubuntu/Assets'));
-app.use(express.static(path.join(__dirname, "Assets")));
-
-
 //To allow cross-origin requests
-app.use(cors());
-
+app.use(cors({
+	origin: '*'
+}));
 
 //Route Prefixes
-app.use("/api", apiRouter);
+app.use("/", indexRouter);
+app.use("/api/", apiRouter);
+app.use("/kl/", apiRouter);
+
+
 
 // throw 404 if URL not found
-app.all("*", function(req, res) {
+app.all("*", function (req, res) {
 	return apiResponse.notFoundResponse(res, "Page not found");
 });
 
 app.use((err, req, res) => {
-	if(err.name == "UnauthorizedError"){
+	if (err.name == "UnauthorizedError") {
 		return apiResponse.unauthorizedResponse(res, err.message);
 	}
-});
-
-setImmediate(function () {
-  initDbConnection()
-    .then(function () {
-      return syncPermissionsOnStart();
-    })
-    .then(function (r) {
-      console.log("[PERMISSION SYNC]", r);
-    })
-    .catch(function (e) {
-      console.error("[STARTUP FAILED]", e);
-    });
 });
 
 module.exports = app;

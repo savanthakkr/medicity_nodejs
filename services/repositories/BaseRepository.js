@@ -1,9 +1,9 @@
-var dbcon = require('../../config/ConnectionPool.js');
+var dbcon = require('../../config/mysqlClient.js');
 // const apiResponse = require('/home/ubuntu/config/apiResponse');
-var utility = require('../../helpers/utility/utility.js');
+var utility = require('../../helpers/utility.js');
 // var constants = require('/home/ubuntu/config/constants');
-var constants = require('../../config/constants');
-const apiResponse = require('../../config/apiResponse');
+var constants = require('../../vars/constants');
+const apiResponse = require('../../vars/apiResponse');
 const moment = require('moment-timezone');
 
 class BaseRepository {
@@ -507,7 +507,9 @@ class BaseRepository {
 
     if (Array.isArray(orderBy) && orderBy.length >= 1) {
       const requestedField = String(orderBy[0] || '').trim();
-      const requestedDirection = String(orderBy[1] || 'DESC').trim().toUpperCase();
+      const requestedDirection = String(orderBy[1] || 'DESC')
+        .trim()
+        .toUpperCase();
 
       if (requestedField) {
         this._validateIdentifier(requestedField, 'orderBy column');
