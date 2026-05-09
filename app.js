@@ -6,6 +6,7 @@ require("dotenv").config();
 
 const indexRouter = require("./routes/index");
 const apiRouter = require("./routes/api");
+const authRouter = require("./routes/auth.routes");
 const apiResponse = require("./vars/apiResponse.js");
 const cors = require("cors");
 const moment = require("moment");
@@ -31,7 +32,7 @@ app.use(cors({
 app.use("/", indexRouter);
 app.use("/api/", apiRouter);
 app.use("/kl/", apiRouter);
-
+app.use("/auth/", authRouter);
 
 
 // throw 404 if URL not found

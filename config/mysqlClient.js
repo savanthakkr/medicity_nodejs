@@ -11,10 +11,13 @@ let env = (process.env.NODE_ENV == 'production') ? 'prod' : 'dev';
 let pools = {};
 let base = {
   //host: 'redoq-dev-db-vpc.cs0kxsrqdtm7.ap-south-1.rds.amazonaws.com',
-  host: 'redoq.amazonaws.com',
+  // host: 'redoq.amazonaws.com',
+  // user: 'root',
+  // password: 'aaaaa',
+  host: 'localhost',
   user: 'root',
-  password: 'aaaaa',
-  database: undefined,
+  password: '',
+  database: 'project_dev_medicity',
   connectionLimit: 50,
   multipleStatements: true,
   dateStrings: true,

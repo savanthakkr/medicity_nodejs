@@ -79,6 +79,16 @@ exports.checkHolidayStatus = async function (req, store_Id, date) {
 	return cnt;
 };
 
+exports.executeQuery = async function (sql, params = []) {
+
+	let content = await dbcon.query(
+		constants.vals.defaultDB,
+		sql,
+		params
+	).catch(console.log);
+
+	return content || [];
+};
 
 
 

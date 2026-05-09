@@ -1,3 +1,5 @@
+exports.JWT_SECRET = "medicity_secret_key_2026";
+
 exports.vals = {
 	confirmEmails: {
 		from: "no-reply@test-app.com"

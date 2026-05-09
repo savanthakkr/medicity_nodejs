@@ -9,7 +9,7 @@ const _s = require("underscore.string");
 const dbquery = require("../helpers/query");
 const dbcon = require("../config/mysqlClient");
 const { sendSuccess, sendError } = require("../helpers/sendResponse.js");
-const ScratchCardRepository = require("../repositories/ScratchCardRepository.js");
+const ScratchCardRepository = require("../services/repositories/ScratchCardRepository.js");
 
 const UserCouponController = exports;
 
