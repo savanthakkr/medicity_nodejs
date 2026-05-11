@@ -131,3 +131,22 @@ exports.adminAuthentication = async (req, res, next) => {
         throw error;
     }
 }
+
+// Role-based access control middleware
+exports.allowRoles = (...roles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return unauthorizedResponse(res, "User not authenticated");
+        }
+
+        if (!roles.includes(req.user.role_id)) {
+            return res.status(403).json({
+                status: false,
+                responseCode: 403,
+                message: "Access Denied"
+            });
+        }
+
+        next();
+    };
+};
