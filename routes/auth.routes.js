@@ -7,12 +7,15 @@ var apiMiddleware = require("../middlewares/api");
 const { authentication, allowRoles } = require("../middlewares/authentication");
 const checkPermission = require("../middlewares/checkPermission");
 
+
 const {
   login,
   logout,
   createEmployee,
   createAdmin,
-  assignPermission
+  assignPermission,
+  getMyPermissions,
+  getEmployees
 
 } = require("../controllers/authController");
 
@@ -29,7 +32,6 @@ router.post(
   apiMiddleware,
   authentication,
   allowRoles(2),
-  checkPermission("employee_create"),
   createEmployee
 );
 router.post(
@@ -37,7 +39,6 @@ router.post(
   apiMiddleware,
   authentication,
   allowRoles(1),
-  checkPermission("admin_create"),
   createAdmin
 );
 router.post(
@@ -45,9 +46,24 @@ router.post(
   apiMiddleware,
   authentication,
   allowRoles(1,2),
-  checkPermission("employee_assign_permissions"),
   assignPermission
 );
+// GET MY PERMISSIONS (IMPORTANT FOR FRONTEND REFRESH FIX)
+router.get(
+  "/my-permissions",
+  apiMiddleware,
+  authentication,
+  getMyPermissions
+);
+router.get(
+  "/employees",
+  apiMiddleware,
+  authentication,
+  allowRoles(1,2),
+  checkPermission("employee_view"),
+  getEmployees
+);
+
 
 router.post(
   "/logout",

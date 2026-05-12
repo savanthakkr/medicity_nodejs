@@ -66,19 +66,6 @@ exports.login = async (req, res) => {
     }
 
     // -------------------------
-    // GENERATE TOKEN
-    // -------------------------
-    const token = jwt.sign(
-      {
-        user_id: user.user_id,
-        role_id: user.role_id,
-        email: user.email
-      },
-      constants.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    // -------------------------
     // FETCH USER PERMISSIONS (RBAC)
     // -------------------------
     const permSql = `
@@ -95,6 +82,20 @@ exports.login = async (req, res) => {
     const permResult = await query.executeQuery(permSql, [user.user_id]);
 
     const permissions = permResult.map(p => p.permission_key);
+
+    // -------------------------
+    // GENERATE TOKEN
+    // -------------------------
+    const token = jwt.sign(
+      {
+        user_id: user.user_id,
+        role_id: user.role_id,
+        email: user.email,
+        permissions
+      },
+      constants.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     // -------------------------
     // RESPONSE
@@ -124,6 +125,12 @@ exports.login = async (req, res) => {
 // CREATE ADMIN (RBAC HANDLED VIA MIDDLEWARE)
 // -------------------------
 exports.createAdmin = async (req, res) => {
+  if (req.user.role_id !== 1) {
+  return res.status(403).json({
+    status: false,
+    message: "Only Super Admin allowed"
+  });
+}
   try {
     let { name, email, password, mobile_no } = req.body;
 
@@ -157,7 +164,7 @@ exports.createAdmin = async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `;
 
-    await query.executeQuery(insertSql, [
+    const insertResult = await query.executeQuery(insertSql, [
       name,
       email,
       hashedPassword,
@@ -168,7 +175,10 @@ exports.createAdmin = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      message: "Admin created successfully"
+      message: "Admin created successfully",
+      data: {
+        user_id: insertResult.insertId
+      }
     });
 
   } catch (error) {
@@ -185,6 +195,15 @@ exports.createAdmin = async (req, res) => {
 // CREATE EMPLOYEE (RBAC HANDLED VIA MIDDLEWARE)
 // -------------------------
 exports.createEmployee = async (req, res) => {
+  if (
+  req.user.role_id !== 1 &&
+  !req.user.permissions?.includes("employee_create")
+) {
+  return res.status(403).json({
+    status: false,
+    message: "Forbidden"
+  });
+}
   try {
     let { name, email, password, mobile_no } = req.body;
 
@@ -218,7 +237,7 @@ exports.createEmployee = async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `;
 
-    await query.executeQuery(insertSql, [
+    const insertResult = await query.executeQuery(insertSql, [
       name,
       email,
       hashedPassword,
@@ -229,7 +248,10 @@ exports.createEmployee = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      message: "Employee created successfully"
+      message: "Employee created successfully",
+      data: {
+        user_id: insertResult.insertId
+      }
     });
 
   } catch (error) {
@@ -246,6 +268,15 @@ exports.createEmployee = async (req, res) => {
 // ASSIGN PERMISSIONS (KEY-BASED RBAC)
 // -------------------------
 exports.assignPermission = async (req, res) => {
+  if (
+  req.user.role_id !== 1 &&
+  !req.user.permissions?.includes("employee_assign_permissions")
+) {
+  return res.status(403).json({
+    status: false,
+    message: "Forbidden"
+  });
+}
   try {
     const { user_id, permission_keys } = req.body;
 
@@ -253,6 +284,54 @@ exports.assignPermission = async (req, res) => {
       return res.status(400).json({
         status: false,
         message: "Invalid request"
+      });
+    }
+
+    const userCheckSql = `
+      SELECT user_id
+      FROM users
+      WHERE user_id = ?
+      LIMIT 1
+    `;
+
+    const userExists = await query.executeQuery(userCheckSql, [user_id]);
+
+    if (!userExists.length) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found"
+      });
+    }
+
+    const assignerPermissions = req.user.permissions || [];
+
+    const allowedPermissionKeys =
+      req.user.role_id === 1
+        ? permission_keys
+        : permission_keys.filter(key =>
+            assignerPermissions.includes(key)
+          );
+
+    const uniqueAllowedPermissionKeys = [...new Set(allowedPermissionKeys)];
+
+    if (permission_keys.length && !uniqueAllowedPermissionKeys.length) {
+      return res.status(403).json({
+        status: false,
+        message: "No valid permissions found"
+      });
+    }
+
+    if (!uniqueAllowedPermissionKeys.length) {
+      const deleteSql = `
+        DELETE FROM user_permissions
+        WHERE user_id = ?
+      `;
+
+      await query.executeQuery(deleteSql, [user_id]);
+
+      return res.status(200).json({
+        status: true,
+        message: "Permissions assigned successfully"
       });
     }
 
@@ -265,7 +344,7 @@ exports.assignPermission = async (req, res) => {
     `;
 
     const permissions = await query.executeQuery(sql, [
-      permission_keys
+      uniqueAllowedPermissionKeys
     ]);
 
     if (!permissions.length) {
@@ -275,31 +354,25 @@ exports.assignPermission = async (req, res) => {
       });
     }
 
+    const deleteSql = `
+      DELETE FROM user_permissions
+      WHERE user_id = ?
+    `;
+
+    await query.executeQuery(deleteSql, [user_id]);
+
     for (let perm of permissions) {
-      const checkSql = `
-        SELECT 1 FROM user_permissions
-        WHERE user_id = ? AND permission_id = ?
-        LIMIT 1
+      const insertSql = `
+        INSERT INTO user_permissions
+        (user_id, permission_id, assigned_by)
+        VALUES (?, ?, ?)
       `;
 
-      const exists = await query.executeQuery(checkSql, [
+      await query.executeQuery(insertSql, [
         user_id,
-        perm.permission_id
+        perm.permission_id,
+        req.user.user_id
       ]);
-
-      if (!exists?.length) {
-        const insertSql = `
-          INSERT INTO user_permissions
-          (user_id, permission_id, assigned_by)
-          VALUES (?, ?, ?)
-        `;
-
-        await query.executeQuery(insertSql, [
-          user_id,
-          perm.permission_id,
-          req.user.user_id
-        ]);
-      }
     }
 
     return res.status(200).json({
@@ -309,6 +382,84 @@ exports.assignPermission = async (req, res) => {
 
   } catch (error) {
     console.error("ASSIGN_PERMISSION_ERROR =>", error);
+
+    return res.status(500).json({
+      status: false,
+      message: "Internal Server Error"
+    });
+  }
+};
+exports.getMyPermissions = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+
+    const sql = `
+      SELECT p.permission_key
+      FROM user_permissions up
+      JOIN permissions p ON p.permission_id = up.permission_id
+      WHERE up.user_id = ?
+        AND up.is_active = 1
+    `;
+
+    const result = await query.executeQuery(sql, [userId]);
+
+    return res.json({
+      status: true,
+      permissions: result.map(r => r.permission_key)
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      status: false,
+      message: "Error"
+    });
+  }
+};
+exports.getEmployees = async (req, res) => {
+  try {
+
+    const sql = `
+      SELECT 
+        u.user_id,
+        u.name,
+        u.email,
+        u.mobile_no,
+        u.role_id,
+        GROUP_CONCAT(p.permission_key) AS permissions
+
+      FROM users u
+
+      LEFT JOIN user_permissions up
+        ON up.user_id = u.user_id
+
+      LEFT JOIN permissions p
+        ON p.permission_id = up.permission_id
+
+      WHERE u.is_delete = 0
+        AND u.role_id != 1
+
+      GROUP BY u.user_id
+
+      ORDER BY u.user_id DESC
+    `;
+
+    const result = await query.executeQuery(sql);
+
+    const formatted = result.map(user => ({
+      ...user,
+      permissions: user.permissions
+        ? user.permissions.split(",")
+        : []
+    }));
+
+    return res.status(200).json({
+      status: true,
+      data: formatted
+    });
+
+  } catch (error) {
+
+    console.error("GET_EMPLOYEES_ERROR =>", error);
 
     return res.status(500).json({
       status: false,

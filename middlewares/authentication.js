@@ -4,20 +4,21 @@ let constants = require("../vars/constants");
 let { notFoundResponse, unauthorizedResponse } = require("../vars/apiResponse");
 
 exports.authentication = async (req, res, next) => {
-    try {
-        const token = req.headers.authorization;
-        if (!token) {
-            return unauthorizedResponse(res, "Token missing");
-        }
-        // Bearer token handle
-        const cleanToken = token.replace("Bearer ", "");
-        // const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET);
-        const decoded = jwt.verify(cleanToken, constants.JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        return unauthorizedResponse(res, "Invalid token");
-    }
+  try {
+    const token = req.headers.authorization;
+
+    if (!token) return unauthorizedResponse(res, "Token missing");
+
+    const cleanToken = token.replace("Bearer ", "");
+
+    const decoded = jwt.verify(cleanToken, constants.JWT_SECRET);
+
+    req.user = decoded; // includes permissions already
+
+    next();
+  } catch (err) {
+    return unauthorizedResponse(res, "Invalid token");
+  }
 };
 
 // exports.authentication = async (req, res, next) => {
