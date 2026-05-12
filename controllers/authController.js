@@ -69,17 +69,33 @@ exports.login = async (req, res) => {
     // FETCH USER PERMISSIONS (RBAC)
     // -------------------------
     const permSql = `
-  SELECT p.permission_key
-  FROM user_permissions up
-  INNER JOIN permissions p
-    ON p.permission_id = up.permission_id
-  WHERE up.user_id = ?
+  SELECT DISTINCT p.permission_key
+
+  FROM permissions p
+
+  LEFT JOIN role_permissions rp
+    ON rp.permission_id = p.permission_id
+    AND rp.role_id = ?
+    AND rp.is_active = 1
+
+  LEFT JOIN user_permissions up
+    ON up.permission_id = p.permission_id
+    AND up.user_id = ?
     AND up.is_active = 1
-    AND p.is_delete = 0
+
+  WHERE
+    (
+      rp.permission_id IS NOT NULL
+      OR up.permission_id IS NOT NULL
+    )
     AND p.is_active = 1
+    AND p.is_delete = 0
 `;
 
-    const permResult = await query.executeQuery(permSql, [user.user_id]);
+    const permResult = await query.executeQuery(permSql, [
+  user.role_id,
+  user.user_id
+]);
 
     const permissions = permResult.map(p => p.permission_key);
 
