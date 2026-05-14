@@ -9,7 +9,7 @@ const { authentication } = require("../middlewares/authentication");
 const {
   login,
   logout,
-} = require("../controllers/authController");
+} = require("../controllers/AuthController");
 
 router.options("/login", (req, res) => res.sendStatus(200));
 
