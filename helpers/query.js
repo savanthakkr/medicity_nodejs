@@ -90,5 +90,79 @@ exports.executeQuery = async function (sql, params = []) {
 	return content || [];
 };
 
+exports.fetchUserPermissions = async function (userId) {
+	let sql = `
+		SELECT
+			a.access_Key
+		FROM access_group_user_linker agul
 
+		INNER JOIN access_group_linker agl
+			ON agl.access_group_Id = agul.access_group_Id
 
+		INNER JOIN access a
+			ON a.access_Id = agl.access_Id
+
+		WHERE agul.user_Id = ?
+		AND agul.is_active = 1
+		AND agul.is_deleted = 0
+
+		AND agl.is_active = 1
+		AND agl.is_deleted = 0
+
+		AND a.is_active = 1
+		AND a.is_deleted = 0
+	`;
+
+	let content = await dbcon.query(
+		constants.vals.defaultDB,
+		sql,
+		[userId]
+	).catch(console.log);
+
+	return content || [];
+};
+
+exports.checkClientEmailExists = async function (email) {
+	let sql = `
+		SELECT *
+		FROM client
+		WHERE client_Email = ?
+		AND is_deleted = 0
+		LIMIT 1
+	`;
+
+	let content = await dbcon.query(
+		constants.vals.defaultDB,
+		sql,
+		[email]
+	).catch(console.log);
+
+	if (!utility.checkEmpty(content)) {
+		content = content[0];
+	}
+	return content;
+};
+
+exports.fetchUserByEmail = async function (email) {
+
+	let sql = `
+		SELECT *
+		FROM user
+		WHERE user_Email = ?
+		AND is_active = 1
+		AND is_deleted = 0
+		LIMIT 1
+	`;
+
+	let content = await dbcon.query(
+		constants.vals.defaultDB,
+		sql,
+		[email]
+	).catch(console.log);
+
+	if (!utility.checkEmpty(content)) {
+		content = content[0];
+	}
+
+	return content;
+};
